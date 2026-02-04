@@ -5,112 +5,254 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Share Your Location</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; max-width: 720px; margin: 0 auto; }
-    button { font-size: 16px; padding: 12px 16px; cursor: pointer; }
-    .hint { color: #555; margin-top: 8px; }
-    .box { margin-top: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 10px; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    :root{
+      --bg:#0b1020;
+      --card:#111a33;
+      --text:#e9ecf5;
+      --muted:#b7bfd6;
+      --line:rgba(255,255,255,.12);
+      --btn:#4f7cff;
+      --btn2:#2f5cff;
+      --good:#3ddc97;
+      --bad:#ff5c7a;
+      --shadow: 0 18px 60px rgba(0,0,0,.45);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      background: radial-gradient(1200px 800px at 20% 10%, rgba(79,124,255,.25), transparent 60%),
+                  radial-gradient(1000px 700px at 80% 30%, rgba(61,220,151,.18), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .wrap{width:min(720px,100%)}
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+      backdrop-filter: blur(10px);
+    }
+    h1{
+      font-size: 28px;
+      margin:0 0 6px;
+      letter-spacing:-.02em;
+    }
+    p{margin:0 0 18px; color:var(--muted); line-height:1.5}
+    .row{
+      display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+      margin: 18px 0 14px;
+    }
+    button{
+      appearance:none;
+      border:0;
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-weight: 650;
+      font-size: 16px;
+      color:white;
+      background: linear-gradient(180deg, var(--btn), var(--btn2));
+      cursor:pointer;
+      transition: transform .06s ease, filter .15s ease;
+    }
+    button:active{transform: translateY(1px)}
+    button[disabled]{opacity:.6; cursor:not-allowed}
+    .pill{
+      padding:8px 12px;
+      border-radius: 999px;
+      border:1px solid var(--line);
+      color:var(--muted);
+      font-size: 13px;
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+    }
+    .dot{
+      width:9px; height:9px; border-radius: 50%;
+      background: rgba(183,191,214,.7);
+    }
+    .dot.good{background: var(--good)}
+    .dot.bad{background: var(--bad)}
+    .status{
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.15);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .grid{
+      margin-top: 14px;
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+    .box{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(0,0,0,.12);
+    }
+    .label{font-size:12px; color:var(--muted); margin-bottom:6px}
+    .value{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; font-size: 14px}
+    .small{margin-top: 14px; font-size: 12px; color: var(--muted)}
+    a{color: #bcd0ff}
+    @media (max-width:560px){
+      .grid{grid-template-columns:1fr}
+      h1{font-size:24px}
+    }
   </style>
 </head>
 <body>
-  <h1>Share Your Location</h1>
-  <p>For your safety, we need to know where you are in case of emergency. Your location will be stored securely and only used if needed.</p>
+  <div class="wrap">
+    <div class="card">
+      <h1>Share your location</h1>
+      <p>
+        Tap the button to share your current location. This will trigger the next step in the workflow.
+      </p>
 
-  <button id="shareBtn" type="button">Share My Location</button>
-  <div class="hint">If you don’t see a permission pop-up, your browser may have location blocked for this site.</div>
+      <div class="row">
+        <button id="shareBtn" type="button">Share my location</button>
+        <div class="pill" id="pill">
+          <span class="dot" id="dot"></span>
+          <span id="pillText">Ready</span>
+        </div>
+      </div>
 
-  <div id="status" class="box">Status: <span class="mono">waiting…</span></div>
-  <div id="result" class="box" style="display:none;">
-    <div><strong>Latitude:</strong> <span id="lat" class="mono"></span></div>
-    <div><strong>Longitude:</strong> <span id="lng" class="mono"></span></div>
-    <div><strong>Accuracy (m):</strong> <span id="acc" class="mono"></span></div>
+      <div class="status" id="status">Waiting for you to press the button.</div>
+
+      <div class="grid" id="grid" style="display:none;">
+        <div class="box">
+          <div class="label">Latitude</div>
+          <div class="value" id="lat">—</div>
+        </div>
+        <div class="box">
+          <div class="label">Longitude</div>
+          <div class="value" id="lng">—</div>
+        </div>
+        <div class="box">
+          <div class="label">Accuracy (meters)</div>
+          <div class="value" id="acc">—</div>
+        </div>
+        <div class="box">
+          <div class="label">Captured at</div>
+          <div class="value" id="time">—</div>
+        </div>
+      </div>
+
+      <div class="small">
+        If you don’t see a permission pop-up, location may be blocked in your browser settings for this site.
+      </div>
+    </div>
   </div>
 
   <script>
     const btn = document.getElementById("shareBtn");
     const statusEl = document.getElementById("status");
-    const resultEl = document.getElementById("result");
+    const gridEl = document.getElementById("grid");
     const latEl = document.getElementById("lat");
     const lngEl = document.getElementById("lng");
     const accEl = document.getElementById("acc");
+    const timeEl = document.getElementById("time");
+    const dotEl = document.getElementById("dot");
+    const pillTextEl = document.getElementById("pillText");
 
-    function setStatus(msg) {
-      statusEl.innerHTML = `Status: <span class="mono">${msg}</span>`;
+    function setPill(state, text){
+      dotEl.className = "dot" + (state ? " " + state : "");
+      pillTextEl.textContent = text;
+    }
+    function setStatus(msg){
+      statusEl.textContent = msg;
       console.log("[geo]", msg);
     }
 
-    function explainError(err) {
-      // https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError
+    function explainError(err){
       if (!err) return "Unknown error";
-      if (err.code === 1) return "Permission denied (you clicked Block or browser is blocking location).";
-      if (err.code === 2) return "Position unavailable (GPS/network couldn’t get a fix).";
+      if (err.code === 1) return "Permission denied (you clicked Block or your browser is blocking location).";
+      if (err.code === 2) return "Position unavailable (couldn’t get a GPS/network fix).";
       if (err.code === 3) return "Timed out trying to get location.";
       return err.message || "Unknown error";
     }
 
-    async function postToWebhook(payload) {
-      // OPTIONAL: paste your Make.com webhook URL here if you want to send data
+    async function postToWebhook(payload){
+      // OPTIONAL: paste your Make.com webhook URL here when you’re ready
       // const WEBHOOK_URL = "https://hook.us2.make.com/9yl94v50b23lklcnxcc82i622ulb65zf";
-      const WEBHOOK_URL = ""; // leave blank to only display location on-page
+      const WEBHOOK_URL = "";
 
       if (!WEBHOOK_URL) return;
 
-      setStatus("sending to webhook…");
+      setStatus("Sending to webhook…");
       const res = await fetch(WEBHOOK_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
+      if (!res.ok){
+        const text = await res.text().catch(()=> "");
         throw new Error(`Webhook error: ${res.status} ${res.statusText} ${text}`.trim());
       }
-      setStatus("sent to webhook ✅");
     }
 
     btn.addEventListener("click", () => {
-      setStatus("button clicked… requesting location permission");
+      setPill("", "Working…");
+      setStatus("Requesting location permission…");
+      btn.disabled = true;
 
-      if (!("geolocation" in navigator)) {
-        setStatus("geolocation not supported in this browser");
+      if (!("geolocation" in navigator)){
+        setPill("bad", "No geolocation");
+        setStatus("Geolocation isn’t supported in this browser.");
+        btn.disabled = false;
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const { latitude, longitude, accuracy } = pos.coords;
-          latEl.textContent = latitude;
-          lngEl.textContent = longitude;
-          accEl.textContent = accuracy;
+          const {latitude, longitude, accuracy} = pos.coords;
 
-          resultEl.style.display = "block";
-          setStatus("location captured ✅");
+          latEl.textContent = latitude.toFixed(6);
+          lngEl.textContent = longitude.toFixed(6);
+          accEl.textContent = Math.round(accuracy);
+          timeEl.textContent = new Date().toLocaleString();
 
-          try {
+          gridEl.style.display = "grid";
+          setPill("good", "Captured");
+          setStatus("Location captured. ✅");
+
+          try{
             await postToWebhook({
               latitude,
               longitude,
               accuracy,
               captured_at: new Date().toISOString(),
-              user_agent: navigator.userAgent,
-              page: location.href
+              page: location.href,
+              user_agent: navigator.userAgent
             });
-          } catch (e) {
+            setStatus("Location captured (and sent). ✅");
+          }catch(e){
             console.error(e);
-            setStatus(`captured, but webhook failed ❌ (${e.message})`);
+            setPill("bad", "Webhook failed");
+            setStatus(`Captured, but sending failed: ${e.message}`);
+          }finally{
+            btn.disabled = false;
           }
         },
         (err) => {
           const msg = explainError(err);
-          console.warn(err);
-          setStatus(`failed ❌ (${msg})`);
+          setPill("bad", "Failed");
+          setStatus(`Couldn’t get location: ${msg}`);
+          btn.disabled = false;
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     });
   </script>
