@@ -1,199 +1,118 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Share Your Location - PROTECT-AI</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
-        }
-
-        h1 {
-            color: #333;
-            font-size: 28px;
-            margin-bottom: 15px;
-        }
-
-        p {
-            color: #666;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 30px;
-        }
-
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 18px;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            font-weight: 600;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .status {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 16px;
-        }
-
-        .status.loading {
-            background: #f0f0f0;
-            color: #666;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .emoji {
-            font-size: 60px;
-            margin-bottom: 20px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Share Your Location</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 24px; max-width: 720px; margin: 0 auto; }
+    button { font-size: 16px; padding: 12px 16px; cursor: pointer; }
+    .hint { color: #555; margin-top: 8px; }
+    .box { margin-top: 16px; padding: 12px; border: 1px solid #ddd; border-radius: 10px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="emoji">📍</div>
-        <h1>Share Your Location</h1>
-        <p>For your safety, we need to know where you are in case of emergency. Your location will be stored securely and only used if needed.</p>
+  <h1>Share Your Location</h1>
+  <p>For your safety, we need to know where you are in case of emergency. Your location will be stored securely and only used if needed.</p>
 
-        <button id="shareBtn" onclick="getLocation()">Share My Location</button>
+  <button id="shareBtn" type="button">Share My Location</button>
+  <div class="hint">If you don’t see a permission pop-up, your browser may have location blocked for this site.</div>
 
-        <div id="status"></div>
-    </div>
+  <div id="status" class="box">Status: <span class="mono">waiting…</span></div>
+  <div id="result" class="box" style="display:none;">
+    <div><strong>Latitude:</strong> <span id="lat" class="mono"></span></div>
+    <div><strong>Longitude:</strong> <span id="lng" class="mono"></span></div>
+    <div><strong>Accuracy (m):</strong> <span id="acc" class="mono"></span></div>
+  </div>
 
-    <script>
-        // Get participant_id from URL parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const participantId = urlParams.get('participant_id') || 'unknown';
+  <script>
+    const btn = document.getElementById("shareBtn");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+    const latEl = document.getElementById("lat");
+    const lngEl = document.getElementById("lng");
+    const accEl = document.getElementById("acc");
 
-        // Your Make.com webhook URL - UPDATE THIS!
-        const WEBHOOK_URL = 'https://hook.us2.make.com/9yl94v50b23lklcnxcc82i622ulb65zf';
+    function setStatus(msg) {
+      statusEl.innerHTML = `Status: <span class="mono">${msg}</span>`;
+      console.log("[geo]", msg);
+    }
 
-        function getLocation() {
-            const btn = document.getElementById('shareBtn');
-            const status = document.getElementById('status');
+    function explainError(err) {
+      // https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError
+      if (!err) return "Unknown error";
+      if (err.code === 1) return "Permission denied (you clicked Block or browser is blocking location).";
+      if (err.code === 2) return "Position unavailable (GPS/network couldn’t get a fix).";
+      if (err.code === 3) return "Timed out trying to get location.";
+      return err.message || "Unknown error";
+    }
 
-            btn.disabled = true;
-            status.className = 'status loading';
-            status.textContent = 'Getting your location...';
+    async function postToWebhook(payload) {
+      // OPTIONAL: paste your Make.com webhook URL here if you want to send data
+      // const WEBHOOK_URL = "https://hook.us2.make.com/9yl94v50b23lklcnxcc82i622ulb65zf";
+      const WEBHOOK_URL = ""; // leave blank to only display location on-page
 
-            if (!navigator.geolocation) {
-                showError('Geolocation is not supported by your browser');
-                return;
-            }
+      if (!WEBHOOK_URL) return;
 
-            navigator.geolocation.getCurrentPosition(
-                position => {
-                    const latitude = position.coords.latitude;
-                    const longitude = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
+      setStatus("sending to webhook…");
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-                    sendLocation(latitude, longitude, accuracy);
-                },
-                error => {
-                    let message = 'Unable to get your location';
-                    switch(error.code) {
-                        case error.PERMISSION_DENIED:
-                            message = 'Location permission denied. Please enable location access in your browser settings.';
-                            break;
-                        case error.POSITION_UNAVAILABLE:
-                            message = 'Location information unavailable';
-                            break;
-                        case error.TIMEOUTPage_Up
-                            message = 'Location request timed out';
-                            break;
-                    }
-                    showError(message);
-                }
-            );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Webhook error: ${res.status} ${res.statusText} ${text}`.trim());
+      }
+      setStatus("sent to webhook ✅");
+    }
+
+    btn.addEventListener("click", () => {
+      setStatus("button clicked… requesting location permission");
+
+      if (!("geolocation" in navigator)) {
+        setStatus("geolocation not supported in this browser");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          latEl.textContent = latitude;
+          lngEl.textContent = longitude;
+          accEl.textContent = accuracy;
+
+          resultEl.style.display = "block";
+          setStatus("location captured ✅");
+
+          try {
+            await postToWebhook({
+              latitude,
+              longitude,
+              accuracy,
+              captured_at: new Date().toISOString(),
+              user_agent: navigator.userAgent,
+              page: location.href
+            });
+          } catch (e) {
+            console.error(e);
+            setStatus(`captured, but webhook failed ❌ (${e.message})`);
+          }
+        },
+        (err) => {
+          const msg = explainError(err);
+          console.warn(err);
+          setStatus(`failed ❌ (${msg})`);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0
         }
-
-        async function sendLocation(latitude, longitude, accuracy) {
-            const status = document.getElementById('status');
-
-            try {
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        participant_id: participantId,
-                        latitude: latitude,
-                        longitude: longitude,
-                        accuracy: accuracy,
-                        timestamp: new Date().toISOString()
-                    })
-                });
-
-                if (response.ok) {
-                    status.className = 'status success';
-                    status.innerHTML = '✅ Location shared successfully!<br>You can close this page now.';
-                    document.querySelector('.emoji').textContent = '✅';
-                } else {
-                    showError('Failed to send location. Please try again.');
-                }
-            } catch (error) {
-                showError('Network error. Please check your connection and try again.');
-            }
-        }
-
-        function showError(message) {
-            const btn = document.getElementById('shareBtn');
-            const status = document.getElementById('status');
-
-            btn.disabled = false;
-            status.className = 'status error';
-            status.textContent = message;
-        }
-    </script>
+      );
+    });
+  </script>
 </body>
 </html>
